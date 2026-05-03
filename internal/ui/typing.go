@@ -34,9 +34,7 @@ type textLine struct {
 type tickMsg time.Time
 
 type typingModel struct {
-	width  int
-	height int
-	styles Styles
+	layout Layout
 	cfg    *config.Config
 
 	mode            gameMode
@@ -61,17 +59,16 @@ type typingModel struct {
 	timerRunning  bool
 }
 
-func newTypingModel(cfg *config.Config, styles Styles) typingModel {
+func newTypingModel(cfg *config.Config, layout Layout) typingModel {
 	return typingModel{
 		cfg:          cfg,
-		styles:       styles,
+		layout:       layout,
 		wordListName: "en",
 	}
 }
 
 func (t typingModel) setSize(w, h int) typingModel {
-	t.width = w
-	t.height = h
+	t.layout = t.layout.SetSize(w, h)
 	return t
 }
 
@@ -124,7 +121,7 @@ func (t typingModel) Update(msg tea.Msg) (typingModel, tea.Cmd) {
 }
 
 func (t typingModel) handleCharOrSkip(input string) (typingModel, tea.Cmd) {
-	availWidth := max(1, t.width-8)
+	availWidth := max(1, t.layout.Width-8)
 	lines := t.computeLines(availWidth)
 	if len(lines) == 0 {
 		return t.handleChar(input)
@@ -143,16 +140,16 @@ func (t typingModel) restart() (typingModel, tea.Cmd) {
 	savedName := t.wordListName
 	savedTimed := t.timedSeconds
 	savedCount := t.wordCountTarget
-	savedW := t.width
-	savedH := t.height
+	savedW := t.layout.Width
+	savedH := t.layout.Height
 
-	t = newTypingModel(t.cfg, t.styles)
+	t = newTypingModel(t.cfg, t.layout)
 	t.mode = savedMode
 	t.wordListName = savedName
 	t.timedSeconds = savedTimed
 	t.wordCountTarget = savedCount
-	t.width = savedW
-	t.height = savedH
+	t.layout.Width = savedW
+	t.layout.Height = savedH
 	t.timeRemaining = savedTimed
 
 	if savedMode == modeQuote {
@@ -228,7 +225,7 @@ func (t *typingModel) sampleWords(n int) []string {
 }
 
 func (t *typingModel) wordsPerRow() int {
-	availWidth := max(1, t.width-8)
+	availWidth := max(1, t.layout.Width-8)
 	return max(1, availWidth/5)
 }
 
@@ -238,7 +235,7 @@ func (t *typingModel) initInfiniteText() {
 }
 
 func (t *typingModel) ensureBufferRows() {
-	availWidth := max(1, t.width-8)
+	availWidth := max(1, t.layout.Width-8)
 	lines := t.computeLines(availWidth)
 	if len(lines) == 0 {
 		return
@@ -267,7 +264,7 @@ func (t typingModel) handleBackspace() typingModel {
 }
 
 func (t typingModel) handleSkipRow() (typingModel, tea.Cmd) {
-	availWidth := max(1, t.width-8)
+	availWidth := max(1, t.layout.Width-8)
 	lines := t.computeLines(availWidth)
 	if len(lines) == 0 {
 		return t, nil
@@ -335,7 +332,7 @@ func (t typingModel) handleChar(input string) (typingModel, tea.Cmd) {
 }
 
 func (t *typingModel) trimCompleted() {
-	availWidth := max(1, t.width-8)
+	availWidth := max(1, t.layout.Width-8)
 	lines := t.computeLines(availWidth)
 	if len(lines) < 3 {
 		return
@@ -416,7 +413,7 @@ func (t typingModel) cursorLineIdx(lines []textLine) int {
 }
 
 func (t typingModel) adjustScroll() typingModel {
-	availWidth := max(1, t.width-8)
+	availWidth := max(1, t.layout.Width-8)
 	lines := t.computeLines(availWidth)
 	if len(lines) == 0 {
 		return t
@@ -478,25 +475,20 @@ func (t typingModel) footerSegments() []string {
 }
 
 func (t typingModel) View() string {
-	if t.width == 0 {
+	if t.layout.Width == 0 {
 		return ""
 	}
 
 	if t.err != "" {
 		footer := []string{footerVersion, "esc: back"}
-		footerH := t.styles.RenderFooterHeight(footer, t.width)
-		bodyHeight := BodyHeight(t.height, footerH)
-		body := t.styles.Error.Render(t.err)
-		return t.styles.Layout(t.width, t.height, "A O I", footer, body, bodyHeight)
+		body := t.layout.Styles.Error.Render(t.err)
+		return t.layout.Render("A O I", footer, body)
 	}
 
 	footerSegs := t.footerSegments()
-	footerH := t.styles.RenderFooterHeight(footerSegs, t.width)
-	bodyHeight := BodyHeight(t.height, footerH)
-
+	bodyHeight := t.layout.BodyHeight(footerSegs)
 	bodyContent := t.renderBody(bodyHeight)
-
-	return t.styles.Layout(t.width, t.height, "A O I", footerSegs, bodyContent, bodyHeight)
+	return t.layout.Render("A O I", footerSegs, bodyContent)
 }
 
 func (t typingModel) renderBody(bodyHeight int) string {
@@ -531,7 +523,7 @@ func (t typingModel) renderBody(bodyHeight int) string {
 		lastKeyLine = lipgloss.NewStyle().Render(" ")
 	}
 
-	innerWidth := max(1, t.width-8)
+	innerWidth := max(1, t.layout.Width-8)
 	centered := lipgloss.NewStyle().
 		Width(innerWidth).
 		Align(lipgloss.Center).
@@ -575,7 +567,7 @@ func (t typingModel) renderText() string {
 		return ""
 	}
 
-	availWidth := max(1, t.width-8)
+	availWidth := max(1, t.layout.Width-8)
 	lines := t.computeLines(availWidth)
 	if len(lines) == 0 {
 		return ""
@@ -616,7 +608,7 @@ func (t typingModel) renderText() string {
 	errorCursorStyle := lipgloss.NewStyle().Background(lipgloss.Color(errorColor)).Bold(true)
 	successCursorStyle := lipgloss.NewStyle().Background(lipgloss.Color(successColor)).Bold(true)
 	pendingCursorStyle := lipgloss.NewStyle().Background(lipgloss.Color(primary)).Bold(true)
-	pendingStyle := t.styles.Dim.Bold(true)
+	pendingStyle := t.layout.Styles.Dim.Bold(true)
 
 	var b strings.Builder
 

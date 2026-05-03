@@ -42,9 +42,7 @@ func (m gameMode) String() string {
 }
 
 type homeModel struct {
-	width       int
-	height      int
-	styles      Styles
+	layout      Layout
 	cfg         *config.Config
 	modeIdx     int
 	wordFiles   []string
@@ -55,10 +53,10 @@ type homeModel struct {
 	configInput  string
 }
 
-func newHomeModel(cfg *config.Config, styles Styles) homeModel {
+func newHomeModel(cfg *config.Config, layout Layout) homeModel {
 	return homeModel{
 		cfg:          cfg,
-		styles:       styles,
+		layout:       layout,
 		modeIdx:      int(modeInfinite),
 		timedSeconds: defaultTimedSeconds,
 		wordCount:    defaultWordCount,
@@ -66,8 +64,7 @@ func newHomeModel(cfg *config.Config, styles Styles) homeModel {
 }
 
 func (h homeModel) setSize(w, height int) homeModel {
-	h.width = w
-	h.height = height
+	h.layout = h.layout.SetSize(w, height)
 	return h
 }
 
@@ -105,12 +102,12 @@ func (h homeModel) View() string {
 		if i == h.modeIdx {
 			label := h.modeLabel()
 			if !h.configValid() {
-				modeDisplay += h.styles.Error.Render(fmt.Sprintf(" [%s] ", label))
+				modeDisplay += h.layout.Styles.Error.Render(fmt.Sprintf(" [%s] ", label))
 			} else {
-				modeDisplay += h.styles.Marker.Render(fmt.Sprintf(" [%s] ", label))
+				modeDisplay += h.layout.Styles.Marker.Render(fmt.Sprintf(" [%s] ", label))
 			}
 		} else {
-			modeDisplay += h.styles.Dim.Render(fmt.Sprintf("  %s  ", name))
+			modeDisplay += h.layout.Styles.Dim.Render(fmt.Sprintf("  %s  ", name))
 		}
 	}
 
@@ -119,20 +116,20 @@ func (h homeModel) View() string {
 	case modeTimed:
 		help = fmt.Sprintf(
 			"\nPress %s/%s to adjust time. Type a number to set custom time.",
-			h.styles.Marker.Render("\u2191"),
-			h.styles.Marker.Render("\u2193"),
+			h.layout.Styles.Marker.Render("\u2191"),
+			h.layout.Styles.Marker.Render("\u2193"),
 		)
 	case modeCount:
 		help = fmt.Sprintf(
 			"\nPress %s/%s to adjust count. Type a number to set custom count.",
-			h.styles.Marker.Render("\u2191"),
-			h.styles.Marker.Render("\u2193"),
+			h.layout.Styles.Marker.Render("\u2191"),
+			h.layout.Styles.Marker.Render("\u2193"),
 		)
 	}
 
 	desc := ""
 	if int(currentMode) < len(modeDescriptions) {
-		desc = "\n" + h.styles.Dim.Render(modeDescriptions[currentMode])
+		desc = "\n" + h.layout.Styles.Dim.Render(modeDescriptions[currentMode])
 	}
 
 	body := fmt.Sprintf(
@@ -140,9 +137,9 @@ func (h homeModel) View() string {
 		modeDisplay,
 		help,
 		desc,
-		h.styles.Marker.Render("enter"),
-		h.styles.Dim.Render("c"),
-		h.styles.Dim.Render("q"),
+		h.layout.Styles.Marker.Render("enter"),
+		h.layout.Styles.Dim.Render("c"),
+		h.layout.Styles.Dim.Render("q"),
 	)
 
 	footer := []string{
@@ -153,7 +150,5 @@ func (h homeModel) View() string {
 		"c: config",
 		"q: quit",
 	}
-	footerH := h.styles.RenderFooterHeight(footer, h.width)
-	bodyHeight := BodyHeight(h.height, footerH)
-	return h.styles.Layout(h.width, h.height, "A O I", footer, body, bodyHeight)
+	return h.layout.Render("A O I", footer, body)
 }

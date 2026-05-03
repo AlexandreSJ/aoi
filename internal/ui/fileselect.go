@@ -10,9 +10,7 @@ import (
 )
 
 type fileSelectModel struct {
-	width  int
-	height int
-	styles Styles
+	layout Layout
 	cfg    *config.Config
 
 	mode    gameMode
@@ -22,10 +20,10 @@ type fileSelectModel struct {
 	isWords bool
 }
 
-func newFileSelectModel(cfg *config.Config, styles Styles, mode gameMode) fileSelectModel {
+func newFileSelectModel(cfg *config.Config, layout Layout, mode gameMode) fileSelectModel {
 	f := fileSelectModel{
 		cfg:    cfg,
-		styles: styles,
+		layout: layout,
 		mode:   mode,
 	}
 	f.isWords = mode != modeQuote
@@ -34,8 +32,7 @@ func newFileSelectModel(cfg *config.Config, styles Styles, mode gameMode) fileSe
 }
 
 func (f fileSelectModel) setSize(w, h int) fileSelectModel {
-	f.width = w
-	f.height = h
+	f.layout = f.layout.SetSize(w, h)
 	return f
 }
 
@@ -79,9 +76,7 @@ func (f fileSelectModel) Update(msg tea.Msg) (fileSelectModel, tea.Cmd) {
 }
 
 func (f fileSelectModel) adjustScroll() fileSelectModel {
-	footerSegs := f.footerSegments()
-	footerH := f.styles.RenderFooterHeight(footerSegs, f.width)
-	avail := BodyHeight(f.height, footerH)
+	avail := f.layout.BodyHeight(f.footerSegments())
 	if avail < 1 {
 		avail = 1
 	}
@@ -112,41 +107,37 @@ func (f fileSelectModel) footerSegments() []string {
 }
 
 func (f fileSelectModel) View() string {
-	if f.width == 0 {
+	if f.layout.Width == 0 {
 		return ""
 	}
-
-	footerSegs := f.footerSegments()
-	footerH := f.styles.RenderFooterHeight(footerSegs, f.width)
-	bodyHeight := BodyHeight(f.height, footerH)
 
 	dir := "words"
 	if !f.isWords {
 		dir = "quotes"
 	}
 
+	footerSegs := f.footerSegments()
+	bodyHeight := f.layout.BodyHeight(footerSegs)
 	body := f.renderList(bodyHeight, dir)
-	return f.styles.Layout(f.width, f.height, "A O I", footerSegs, body, bodyHeight)
+	return f.layout.Render("A O I", footerSegs, body)
 }
 
 func (f fileSelectModel) renderList(maxLines int, dir string) string {
-	footerSegs := f.footerSegments()
-	footerH := f.styles.RenderFooterHeight(footerSegs, f.width)
-	avail := BodyHeight(f.height, footerH)
+	avail := f.layout.BodyHeight(f.footerSegments())
 	if avail < 1 {
 		avail = 1
 	}
 
 	var b strings.Builder
-	b.WriteString(f.styles.Subtitle.Render(fmt.Sprintf("  Select %s file:", dir)) + "\n\n")
+	b.WriteString(f.layout.Styles.Subtitle.Render(fmt.Sprintf("  Select %s file:", dir)) + "\n\n")
 
 	lineCount := 2
 	for i := f.scroll; i < len(f.files) && lineCount < maxLines; i++ {
 		name := f.files[i]
 		if i == f.cursor {
-			b.WriteString(f.styles.Marker.Render(fmt.Sprintf("  > %s", name)))
+			b.WriteString(f.layout.Styles.Marker.Render(fmt.Sprintf("  > %s", name)))
 		} else {
-			b.WriteString(f.styles.Dim.Render(fmt.Sprintf("    %s", name)))
+			b.WriteString(f.layout.Styles.Dim.Render(fmt.Sprintf("    %s", name)))
 		}
 		b.WriteString("\n")
 		lineCount++

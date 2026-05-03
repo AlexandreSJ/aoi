@@ -101,6 +101,28 @@ func BodyHeight(totalHeight, footerHeight int) int {
 	return h
 }
 
+type Layout struct {
+	Width  int
+	Height int
+	Styles Styles
+}
+
+func (l Layout) SetSize(w, h int) Layout {
+	l.Width = w
+	l.Height = h
+	return l
+}
+
+func (l Layout) BodyHeight(footerSegments []string) int {
+	footerH := l.Styles.RenderFooterHeight(footerSegments, l.Width)
+	return BodyHeight(l.Height, footerH)
+}
+
+func (l Layout) Render(title string, footerSegments []string, bodyContent string) string {
+	bodyHeight := l.BodyHeight(footerSegments)
+	return l.Styles.Layout(l.Width, l.Height, title, footerSegments, bodyContent, bodyHeight)
+}
+
 func (s Styles) RenderFooter(segments []string, width int) string {
 	if width < 1 {
 		width = 1

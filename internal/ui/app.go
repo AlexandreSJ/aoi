@@ -25,11 +25,9 @@ const (
 )
 
 type App struct {
-	width      int
-	height     int
 	screen     screen
 	cfg        *config.Config
-	styles     Styles
+	layout     Layout
 	home       homeModel
 	config     configModel
 	fileSelect fileSelectModel
@@ -44,14 +42,14 @@ func NewApp() App {
 
 	bootstrapDirs(cfg)
 
-	styles := StylesFromConfig(cfg)
+	layout := Layout{Styles: StylesFromConfig(cfg)}
 
 	return App{
 		cfg:    cfg,
-		styles: styles,
-		home:   newHomeModel(cfg, styles),
-		config: newConfigModel(cfg, styles),
-		typing: newTypingModel(cfg, styles),
+		layout: layout,
+		home:   newHomeModel(cfg, layout),
+		config: newConfigModel(cfg, layout),
+		typing: newTypingModel(cfg, layout),
 	}
 }
 
@@ -73,8 +71,7 @@ func (a App) Init() tea.Cmd {
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		a.width = msg.Width
-		a.height = msg.Height
+		a.layout = a.layout.SetSize(msg.Width, msg.Height)
 		a.home = a.home.setSize(msg.Width, msg.Height)
 		a.config = a.config.setSize(msg.Width, msg.Height)
 		a.fileSelect = a.fileSelect.setSize(msg.Width, msg.Height)
@@ -108,8 +105,8 @@ func (a App) updateHome(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		case "c":
 			a.screen = screenConfig
-			a.config = newConfigModel(a.cfg, a.styles)
-			a.config = a.config.setSize(a.width, a.height)
+			a.config = newConfigModel(a.cfg, a.layout)
+			a.config = a.config.setSize(a.layout.Width, a.layout.Height)
 			return a, nil
 		case "left", "h":
 			if a.home.modeIdx > 0 {
@@ -172,8 +169,8 @@ func (a App) updateHome(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !a.home.configValid() {
 				return a, nil
 			}
-			a.fileSelect = newFileSelectModel(a.cfg, a.styles, a.home.selectedMode())
-			a.fileSelect = a.fileSelect.setSize(a.width, a.height)
+			a.fileSelect = newFileSelectModel(a.cfg, a.layout, a.home.selectedMode())
+			a.fileSelect = a.fileSelect.setSize(a.layout.Width, a.layout.Height)
 			a.screen = screenFileSelect
 			return a, nil
 		default:
@@ -225,11 +222,11 @@ func (a App) updateConfig(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch keyMsg.String() {
 			case "esc", "c":
 				a.cfg = a.config.cfg
-				a.styles = StylesFromConfig(a.cfg)
-				a.home = newHomeModel(a.cfg, a.styles)
-				a.home = a.home.setSize(a.width, a.height)
-				a.typing = newTypingModel(a.cfg, a.styles)
-				a.typing = a.typing.setSize(a.width, a.height)
+				a.layout.Styles = StylesFromConfig(a.cfg)
+				a.home = newHomeModel(a.cfg, a.layout)
+				a.home = a.home.setSize(a.layout.Width, a.layout.Height)
+				a.typing = newTypingModel(a.cfg, a.layout)
+				a.typing = a.typing.setSize(a.layout.Width, a.layout.Height)
 				a.screen = screenHome
 				return a, nil
 			}
@@ -251,12 +248,12 @@ func (a App) updateFileSelect(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		case "enter":
 			selectedFile := a.fileSelect.selectedFile()
-			a.typing = newTypingModel(a.cfg, a.styles)
+			a.typing = newTypingModel(a.cfg, a.layout)
 			a.typing.mode = a.home.selectedMode()
 			a.typing.timedSeconds = a.home.timedSeconds
 			a.typing.wordCountTarget = a.home.wordCount
 			a.typing.wordListName = selectedFile
-			a.typing = a.typing.setSize(a.width, a.height)
+			a.typing = a.typing.setSize(a.layout.Width, a.layout.Height)
 			if a.typing.mode == modeQuote {
 				a.typing = a.typing.loadQuote()
 			} else {
@@ -287,11 +284,11 @@ func (a App) updateTyping(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) View() string {
-	if a.width == 0 {
+	if a.layout.Width == 0 {
 		return "Loading..."
 	}
 
-	if a.width < minTermWidth || a.height < minTermHeight {
+	if a.layout.Width < minTermWidth || a.layout.Height < minTermHeight {
 		return fmt.Sprintf("Terminal too small (min %dx%d)", minTermWidth, minTermHeight)
 	}
 

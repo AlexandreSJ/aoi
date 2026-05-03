@@ -45,11 +45,9 @@ func init() {
 }
 
 type configModel struct {
-	styles   Styles
-	width    int
-	height   int
-	cfg      *config.Config
-	keys     []string
+	layout Layout
+	cfg    *config.Config
+	keys   []string
 	sections []config.Section
 	cursor   int
 	scroll   int
@@ -66,14 +64,14 @@ type configModel struct {
 	pickerScroll int
 }
 
-func newConfigModel(cfg *config.Config, styles Styles) configModel {
+func newConfigModel(cfg *config.Config, layout Layout) configModel {
 	sections := cfg.Sections()
 	var keys []string
 	for _, s := range sections {
 		keys = append(keys, s.Keys...)
 	}
 	c := configModel{
-		styles:   styles,
+		layout:   layout,
 		cfg:      cfg,
 		sections: sections,
 		keys:     keys,
@@ -83,8 +81,7 @@ func newConfigModel(cfg *config.Config, styles Styles) configModel {
 }
 
 func (c configModel) setSize(w, h int) configModel {
-	c.width = w
-	c.height = h
+	c.layout = c.layout.SetSize(w, h)
 	return c
 }
 
@@ -270,8 +267,7 @@ func (c configModel) adjustPickerScroll() configModel {
 		return c
 	}
 
-	footerH := c.styles.RenderFooterHeight(c.footerSegments(), c.width)
-	avail := BodyHeight(c.height, footerH)
+	avail := c.layout.BodyHeight(c.footerSegments())
 
 	targetLine := cursorLine
 	if cursorLine > 0 && lines[cursorLine-1].idx == -1 {
@@ -379,8 +375,7 @@ func (c configModel) pickerDown() int {
 
 func (c configModel) adjustScroll() configModel {
 	dIdx := c.cursorToDisplayIdx()
-	footerH := c.styles.RenderFooterHeight(c.footerSegments(), c.width)
-	avail := BodyHeight(c.height, footerH)
+	avail := c.layout.BodyHeight(c.footerSegments())
 
 	linesAfterCursor := 1
 	if c.items[dIdx].hint != "" {
@@ -407,17 +402,16 @@ func (c configModel) adjustScroll() configModel {
 
 func (c configModel) View() string {
 	segments := c.footerSegments()
-	footerH := c.styles.RenderFooterHeight(segments, c.width)
-	bodyHeight := BodyHeight(c.height, footerH)
+	bodyHeight := c.layout.BodyHeight(segments)
 
 	var bodyContent string
 	if c.picker {
 		bodyContent = c.renderPicker(bodyHeight)
 	} else {
-		bodyContent = c.renderList(c.width-4, bodyHeight)
+		bodyContent = c.renderList(c.layout.Width-4, bodyHeight)
 	}
 
-	return c.styles.Layout(c.width, c.height, "Config", segments, bodyContent, bodyHeight)
+	return c.layout.Render("Config", segments, bodyContent)
 }
 
 func (c configModel) renderList(availWidth, maxLines int) string {
@@ -435,7 +429,7 @@ func (c configModel) renderList(availWidth, maxLines int) string {
 			b.WriteString("\n")
 			lineCount++
 		case "subtitle":
-			b.WriteString(c.styles.Subtitle.Render(fmt.Sprintf("  %s", item.text)) + "\n")
+			b.WriteString(c.layout.Styles.Subtitle.Render(fmt.Sprintf("  %s", item.text)) + "\n")
 			lineCount++
 		case "item":
 			key := item.key
@@ -444,7 +438,7 @@ func (c configModel) renderList(availWidth, maxLines int) string {
 
 			marker := "  "
 			if i == dIdx {
-				marker = c.styles.Marker.Render(" >")
+				marker = c.layout.Styles.Marker.Render(" >")
 			}
 
 			var line string
@@ -456,7 +450,7 @@ func (c configModel) renderList(availWidth, maxLines int) string {
 			} else {
 				line = fmt.Sprintf("%s   %s: %s", marker, shortKey, value)
 				if item.hint != "" && !(c.editing && c.editKey == key) {
-					line += c.styles.Dim.Render(fmt.Sprintf("  %s", item.hint))
+					line += c.layout.Styles.Dim.Render(fmt.Sprintf("  %s", item.hint))
 				}
 			}
 
@@ -473,7 +467,7 @@ func (c configModel) renderList(availWidth, maxLines int) string {
 	}
 
 	if c.err != "" && lineCount < maxLines {
-		b.WriteString("\n" + c.styles.Error.Render(c.err))
+		b.WriteString("\n" + c.layout.Styles.Error.Render(c.err))
 	}
 
 	return b.String()
@@ -532,7 +526,7 @@ func (c configModel) renderPicker(avail int) string {
 	var b strings.Builder
 
 	if c.err != "" {
-		b.WriteString(c.styles.Error.Render(c.err) + "\n")
+		b.WriteString(c.layout.Styles.Error.Render(c.err) + "\n")
 	}
 
 	for i, pl := range visible {
@@ -543,7 +537,7 @@ func (c configModel) renderPicker(avail int) string {
 			continue
 		}
 		if pl.idx == -1 {
-			b.WriteString(c.styles.Subtitle.Render("  "+pl.text) + "\n")
+			b.WriteString(c.layout.Styles.Subtitle.Render("  "+pl.text) + "\n")
 			continue
 		}
 		b.WriteString(pl.text + "\n")
