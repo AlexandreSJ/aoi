@@ -1,0 +1,13 @@
+colors:
+    primary: "32"
+    secondary: "27"
+    text: "231"
+    dim: "8"
+    title: "0"
+    footer: "0"
+    error: "162"
+    success: "75"
+system:
+    config: ~/.config/aoi
+    words: ~/.config/aoi/words
+    quotes: ~/.config/aoi/quotes
