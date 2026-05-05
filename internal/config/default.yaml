@@ -3,8 +3,8 @@ colors:
     secondary: "27"
     text: "231"
     dim: "8"
-    title: "0"
-    footer: "0"
+    title: "232"
+    footer: "232"
     error: "162"
     success: "75"
 system:
