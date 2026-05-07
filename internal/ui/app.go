@@ -251,6 +251,7 @@ func (a App) updateFileSelect(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.typing = newTypingModel(a.cfg, a.layout)
 			a.typing.mode = a.home.selectedMode()
 			a.typing.timedSeconds = a.home.timedSeconds
+			a.typing.timeRemaining = a.home.timedSeconds
 			a.typing.wordCountTarget = a.home.wordCount
 			a.typing.wordListName = selectedFile
 			a.typing = a.typing.setSize(a.layout.Width, a.layout.Height)

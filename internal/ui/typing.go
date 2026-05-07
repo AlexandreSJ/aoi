@@ -33,6 +33,12 @@ type textLine struct {
 
 type tickMsg time.Time
 
+type flashMsg struct{}
+
+func flashCmd() tea.Cmd {
+	return tea.Tick(1000*time.Millisecond, func(time.Time) tea.Msg { return flashMsg{} })
+}
+
 type typingModel struct {
 	layout Layout
 	cfg    *config.Config
@@ -50,13 +56,21 @@ type typingModel struct {
 	finished     bool
 	err          string
 
-	lastWord      string
-	lastKey       string
-	lastKeyError  bool
-	errorCount    int
+	lastWord     string
+	lastKey      string
+	lastKeyError bool
+	lastKeyFlash bool
+	errorCount   int
+	trimmedOk    int
+	trimmedErr   int
 
 	timeRemaining int
 	timerRunning  bool
+
+	charTimestamps []time.Time
+	startTime      time.Time
+	showStats      bool
+	charLimit      int
 }
 
 func newTypingModel(cfg *config.Config, layout Layout) typingModel {
@@ -64,6 +78,8 @@ func newTypingModel(cfg *config.Config, layout Layout) typingModel {
 		cfg:          cfg,
 		layout:       layout,
 		wordListName: "en",
+		showStats:    true,
+		charLimit:    100,
 	}
 }
 
@@ -88,6 +104,9 @@ func (t typingModel) Update(msg tea.Msg) (typingModel, tea.Cmd) {
 		return t, tea.Tick(time.Second, func(t time.Time) tea.Msg {
 			return tickMsg(t)
 		})
+	case flashMsg:
+		t.lastKeyFlash = false
+		return t, nil
 	case tea.KeyMsg:
 		if t.finished {
 			if msg.String() == "enter" {
@@ -100,13 +119,40 @@ func (t typingModel) Update(msg tea.Msg) (typingModel, tea.Cmd) {
 			return t, nil
 		}
 
+		if msg.String() == "tab" {
+			t.showStats = !t.showStats
+			return t, nil
+		}
+
+		t.lastKeyFlash = true
+
 		switch msg.Type {
 		case tea.KeyEnter:
+			t.lastKey = "enter"
+			t.lastKeyError = false
 			return t.restart()
 		case tea.KeyBackspace:
-			return t.handleBackspace(), nil
+			t.lastKey = "backspace"
+			t.lastKeyError = false
+			return t.handleBackspace(), flashCmd()
 		case tea.KeyDown:
+			t.lastKey = "\u2193"
+			t.lastKeyError = false
 			return t.handleSkipRow()
+		case tea.KeyUp:
+			t.lastKey = "\u2191"
+			t.lastKeyError = false
+			return t, flashCmd()
+		case tea.KeyLeft:
+			t.lastKey = "\u2190"
+			t.lastKeyError = false
+			t.charLimit = max(25, t.charLimit-25)
+			return t, flashCmd()
+		case tea.KeyRight:
+			t.lastKey = "\u2192"
+			t.lastKeyError = false
+			t.charLimit = min(500, t.charLimit+25)
+			return t, flashCmd()
 		case tea.KeyRunes:
 			if msg.String() == "j" {
 				return t.handleCharOrSkip(msg.String())
@@ -121,8 +167,7 @@ func (t typingModel) Update(msg tea.Msg) (typingModel, tea.Cmd) {
 }
 
 func (t typingModel) handleCharOrSkip(input string) (typingModel, tea.Cmd) {
-	availWidth := max(1, t.layout.Width-8)
-	lines := t.computeLines(availWidth)
+	lines := t.computeLines(t.lineWidth())
 	if len(lines) == 0 {
 		return t.handleChar(input)
 	}
@@ -142,6 +187,11 @@ func (t typingModel) restart() (typingModel, tea.Cmd) {
 	savedCount := t.wordCountTarget
 	savedW := t.layout.Width
 	savedH := t.layout.Height
+	savedLastKey := t.lastKey
+	savedLastKeyError := t.lastKeyError
+	savedFlash := t.lastKeyFlash
+	savedShowStats := t.showStats
+	savedCharLimit := t.charLimit
 
 	t = newTypingModel(t.cfg, t.layout)
 	t.mode = savedMode
@@ -151,6 +201,11 @@ func (t typingModel) restart() (typingModel, tea.Cmd) {
 	t.layout.Width = savedW
 	t.layout.Height = savedH
 	t.timeRemaining = savedTimed
+	t.lastKey = savedLastKey
+	t.lastKeyError = savedLastKeyError
+	t.lastKeyFlash = savedFlash
+	t.showStats = savedShowStats
+	t.charLimit = savedCharLimit
 
 	if savedMode == modeQuote {
 		t = t.loadQuote()
@@ -229,14 +284,18 @@ func (t *typingModel) wordsPerRow() int {
 	return max(1, availWidth/5)
 }
 
+func (t *typingModel) lineWidth() int {
+	availWidth := max(1, t.layout.Width-8)
+	return min(t.charLimit, availWidth)
+}
+
 func (t *typingModel) initInfiniteText() {
 	ws := t.sampleWords(t.wordsPerRow() * 4)
 	t.setChars(strings.Join(ws, " "))
 }
 
 func (t *typingModel) ensureBufferRows() {
-	availWidth := max(1, t.layout.Width-8)
-	lines := t.computeLines(availWidth)
+	lines := t.computeLines(t.lineWidth())
 	if len(lines) == 0 {
 		return
 	}
@@ -255,17 +314,25 @@ func (t *typingModel) ensureBufferRows() {
 }
 
 func (t typingModel) handleBackspace() typingModel {
+	// If cursor is on an error char (missed, not yet advanced), clear it in place
+	if t.cursor < len(t.chars) && t.chars[t.cursor].state == charError {
+		t.chars[t.cursor].state = charPending
+		t.errorCount--
+		return t.adjustScroll()
+	}
 	if t.cursor <= 0 {
 		return t
 	}
 	t.cursor--
+	if t.chars[t.cursor].state == charError {
+		t.errorCount--
+	}
 	t.chars[t.cursor].state = charPending
 	return t.adjustScroll()
 }
 
 func (t typingModel) handleSkipRow() (typingModel, tea.Cmd) {
-	availWidth := max(1, t.layout.Width-8)
-	lines := t.computeLines(availWidth)
+	lines := t.computeLines(t.lineWidth())
 	if len(lines) == 0 {
 		return t, nil
 	}
@@ -283,7 +350,7 @@ func (t typingModel) handleSkipRow() (typingModel, tea.Cmd) {
 
 	t = t.adjustScroll()
 	t.trimCompleted()
-	return t, nil
+	return t, flashCmd()
 }
 
 func (t typingModel) handleChar(input string) (typingModel, tea.Cmd) {
@@ -296,9 +363,14 @@ func (t typingModel) handleChar(input string) (typingModel, tea.Cmd) {
 	var cmd tea.Cmd
 	if t.mode == modeTimed && !t.timerRunning && !t.finished {
 		t.timerRunning = true
+		t.startTime = time.Now()
 		cmd = tea.Tick(time.Second, func(t time.Time) tea.Msg {
 			return tickMsg(t)
 		})
+	}
+
+	if t.startTime.IsZero() {
+		t.startTime = time.Now()
 	}
 
 	expected := t.chars[t.cursor].char
@@ -306,11 +378,15 @@ func (t typingModel) handleChar(input string) (typingModel, tea.Cmd) {
 	if input == expected {
 		if t.chars[t.cursor].state != charError {
 			t.chars[t.cursor].state = charCorrect
+			t.charTimestamps = append(t.charTimestamps, time.Now())
 		}
 		t.lastKeyError = false
 		t.cursor++
 		if t.mode == modeInfinite || t.mode == modeTimed {
 			t.ensureBufferRows()
+		}
+		if t.mode == modeInfinite && t.cursor >= len(t.chars) {
+			t.finished = true
 		}
 		if t.mode == modeCount && t.cursor >= len(t.chars) {
 			t.finished = true
@@ -328,12 +404,14 @@ func (t typingModel) handleChar(input string) (typingModel, tea.Cmd) {
 
 	t = t.adjustScroll()
 	t.trimCompleted()
-	return t, cmd
+	if cmd != nil {
+		return t, tea.Batch(cmd, flashCmd())
+	}
+	return t, flashCmd()
 }
 
 func (t *typingModel) trimCompleted() {
-	availWidth := max(1, t.layout.Width-8)
-	lines := t.computeLines(availWidth)
+	lines := t.computeLines(t.lineWidth())
 	if len(lines) < 3 {
 		return
 	}
@@ -349,10 +427,20 @@ func (t *typingModel) trimCompleted() {
 		return
 	}
 
+	for i := 0; i < trimCount; i++ {
+		switch t.chars[i].state {
+		case charCorrect:
+			t.trimmedOk++
+		case charError:
+			t.trimmedErr++
+		}
+	}
+
 	t.chars = t.chars[trimCount:]
 	t.cursor -= trimCount
 	t.scrollOffset = 0
 }
+
 
 func (t typingModel) computeLines(availWidth int) []textLine {
 	if availWidth < 1 || len(t.chars) == 0 {
@@ -413,8 +501,7 @@ func (t typingModel) cursorLineIdx(lines []textLine) int {
 }
 
 func (t typingModel) adjustScroll() typingModel {
-	availWidth := max(1, t.layout.Width-8)
-	lines := t.computeLines(availWidth)
+	lines := t.computeLines(t.lineWidth())
 	if len(lines) == 0 {
 		return t
 	}
@@ -434,13 +521,73 @@ func (t typingModel) adjustScroll() typingModel {
 }
 
 func (t typingModel) correctCount() int {
-	n := 0
+	n := t.trimmedOk
 	for _, c := range t.chars {
 		if c.state == charCorrect {
 			n++
 		}
 	}
 	return n
+}
+
+func (t typingModel) wpm() float64 {
+	if t.startTime.IsZero() {
+		return 0
+	}
+
+	var elapsed time.Duration
+	if t.mode == modeTimed {
+		elapsed = time.Duration(t.timedSeconds-t.timeRemaining) * time.Second
+	} else {
+		elapsed = time.Since(t.startTime)
+		if t.finished {
+			elapsed = time.Duration(t.correctCount()+t.errorCount) * time.Second / time.Duration(max(1, t.correctCount()+t.errorCount))
+		}
+	}
+
+	if elapsed < time.Second {
+		return 0
+	}
+
+	seconds := elapsed.Seconds()
+	if seconds <= 0 {
+		return 0
+	}
+
+	var charsInWindow int
+	if t.mode == modeTimed {
+		charsInWindow = t.correctCount()
+	} else {
+		cutoff := time.Now().Add(-5 * time.Second)
+		for _, ts := range t.charTimestamps {
+			if ts.After(cutoff) {
+				charsInWindow++
+			}
+		}
+		if charsInWindow == 0 {
+			return 0
+		}
+		seconds = 5.0
+	}
+
+	wpm := (float64(charsInWindow) / 5.0) * (60.0 / seconds)
+	if wpm >= 10000 {
+		return 9999.99
+	}
+	return wpm
+}
+
+func (t typingModel) precision() float64 {
+	ok := t.correctCount()
+	total := ok + t.trimmedErr + t.errorCount
+	if total == 0 {
+		return 0
+	}
+	p := float64(ok) / float64(total) * 100
+	if p >= 10000 {
+		return 9999.99
+	}
+	return p
 }
 
 func (t typingModel) footerSegments() []string {
@@ -464,11 +611,27 @@ func (t typingModel) footerSegments() []string {
 		modeLabel = fmt.Sprintf("Count %d", t.wordCountTarget)
 	}
 
+	ok := t.correctCount()
+	errCount := t.trimmedErr + t.errorCount
+	okStr := fmt.Sprintf("%d", ok)
+	errStr := fmt.Sprintf("%d", errCount)
+	if ok >= 10000 {
+		okStr = "9999+"
+	}
+	if errCount >= 10000 {
+		errStr = "9999+"
+	}
+
+	tabLabel := "tab: hide"
+	if !t.showStats {
+		tabLabel = "tab: show"
+	}
 	return []string{
 		footerVersion,
 		fmt.Sprintf("%s | %s", modeLabel, t.wordListName),
-		fmt.Sprintf("%d ok / %d err", t.correctCount(), t.errorCount),
+		fmt.Sprintf("%s ok / %s err", okStr, errStr),
 		status,
+		tabLabel,
 		"enter: restart",
 		"esc: back",
 	}
@@ -506,18 +669,30 @@ func (t typingModel) renderBody(bodyHeight int) string {
 	if errorColor == "" {
 		errorColor = fallbackError
 	}
+	primaryColor := t.cfg.Colors.Primary
+	if primaryColor == "" {
+		primaryColor = fallbackPrimary
+	}
 
 	display := t.formatLastKey()
 	var lastKeyLine string
-	if t.lastKeyError {
-		lastKeyLine = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(errorColor)).
-			Bold(true).
-			Render(display)
+	if t.lastKeyFlash {
+		if t.lastKeyError {
+			lastKeyLine = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(errorColor)).
+				Bold(true).
+				Render(display)
+		} else if t.lastKey != "" {
+			lastKeyLine = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(successColor)).
+				Bold(true).
+				Render(display)
+		} else {
+			lastKeyLine = lipgloss.NewStyle().Render(" ")
+		}
 	} else if t.lastKey != "" {
 		lastKeyLine = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(successColor)).
-			Bold(true).
+			Foreground(lipgloss.Color(primaryColor)).
 			Render(display)
 	} else {
 		lastKeyLine = lipgloss.NewStyle().Render(" ")
@@ -529,7 +704,10 @@ func (t typingModel) renderBody(bodyHeight int) string {
 		Align(lipgloss.Center).
 		Render(lastKeyLine)
 
-	const bottomSection = 3
+	bottomSection := 3
+	if t.showStats {
+		bottomSection = 4
+	}
 	totalContentLines := textLines + bottomSection
 
 	padAbove := 0
@@ -546,6 +724,19 @@ func (t typingModel) renderBody(bodyHeight int) string {
 
 	b.WriteString("\n\n")
 	b.WriteString(centered)
+
+	if t.showStats {
+		wpmVal := t.wpm()
+		precVal := t.precision()
+		statsLine := fmt.Sprintf("%.2f wpm | %.2f%% prec | %d chars", wpmVal, precVal, t.charLimit)
+		centeredStats := lipgloss.NewStyle().
+			Width(innerWidth).
+			Align(lipgloss.Center).
+			Foreground(lipgloss.Color(primaryColor)).
+			Render(statsLine)
+		b.WriteString("\n")
+		b.WriteString(centeredStats)
+	}
 
 	return b.String()
 }
@@ -567,8 +758,7 @@ func (t typingModel) renderText() string {
 		return ""
 	}
 
-	availWidth := max(1, t.layout.Width-8)
-	lines := t.computeLines(availWidth)
+	lines := t.computeLines(t.lineWidth())
 	if len(lines) == 0 {
 		return ""
 	}
@@ -610,10 +800,12 @@ func (t typingModel) renderText() string {
 	pendingCursorStyle := lipgloss.NewStyle().Background(lipgloss.Color(primary)).Bold(true)
 	pendingStyle := t.layout.Styles.Dim.Bold(true)
 
+	innerWidth := max(1, t.layout.Width-8)
 	var b strings.Builder
 
 	for li := startLine; li < endLine; li++ {
 		line := lines[li]
+		var lineBuf strings.Builder
 
 		for i := line.start; i < line.end && i < len(t.chars); i++ {
 			c := t.chars[i]
@@ -626,30 +818,33 @@ func (t typingModel) renderText() string {
 
 			switch {
 			case isCursor && c.state == charError:
-				b.WriteString(errorCursorStyle.Render(display))
+				lineBuf.WriteString(errorCursorStyle.Render(display))
 			case isCursor && c.state == charCorrect:
-				b.WriteString(successCursorStyle.Render(display))
+				lineBuf.WriteString(successCursorStyle.Render(display))
 			case isCursor:
-				b.WriteString(pendingCursorStyle.Render(display))
+				lineBuf.WriteString(pendingCursorStyle.Render(display))
 			case c.state == charCorrect:
 				if li < cursorLine {
-					b.WriteString(successDimStyle.Render(display))
+					lineBuf.WriteString(successDimStyle.Render(display))
 				} else {
-					b.WriteString(successStyle.Render(display))
+					lineBuf.WriteString(successStyle.Render(display))
 				}
 			case c.state == charError:
 				if li < cursorLine {
-					b.WriteString(errorDimStyle.Render(display))
+					lineBuf.WriteString(errorDimStyle.Render(display))
 				} else {
-					b.WriteString(errorStyle.Render(display))
+					lineBuf.WriteString(errorStyle.Render(display))
 				}
 			default:
 				if li <= cursorLine+1 {
-					b.WriteString(pendingStyle.Render(display))
+					lineBuf.WriteString(pendingStyle.Render(display))
 				}
 			}
 		}
-		b.WriteString("\n")
+			lineStr := lineBuf.String()
+			centered := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center).Render(lineStr)
+			b.WriteString(centered)
+			b.WriteString("\n")
 	}
 
 	return b.String()

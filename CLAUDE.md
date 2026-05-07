@@ -30,6 +30,7 @@ TUI typing test built with Bubble Tea (Elm Architecture: Model-Update-View) + Li
 `internal/ui/app.go` — top-level `App` struct delegates to screen-specific models:
 - `screenHome` → `homeModel` (`home.go`) — mode selection with Left/Right, Enter to start
 - `screenConfig` → `configModel` (`config.go`) — config editor with inline text editing and ANSI 256-color picker
+- `screenFileSelect` → `fileSelectModel` (`fileselect.go`) — word/quote file picker before starting test
 - `screenTyping` → `typingModel` (`typing.go`) — typing test engine with character-level feedback
 
 Screen routing happens in `App.Update()` via a `screen` enum. Each sub-model has its own `Update`/`View` methods and `setSize` for resize propagation. All models use value receivers (return modified copy — Bubble Tea pattern).
@@ -50,9 +51,11 @@ Every screen renders three vertical sections: title bar, bordered body, footer v
 
 `internal/ui/home.go` — Four modes: Infinite, Timed (configurable via Up/Down or typing a number), Count (configurable), Quote. `homeModel` stores `timedSeconds` and `wordCount` for configuration.
 
-### Word system
+### Word and quote systems
 
 `internal/words/words.go` — Loads word lists from embedded files (`internal/words/embedded/*.txt`) or user directory (`~/.config/aoi/words/`). Supports random sampling and infinite generation.
+
+`internal/quotes/quotes.go` — Same pattern as words but for quote lists (`internal/quotes/embedded/*.txt`, `~/.config/aoi/quotes/`). Each line = one quote. `QuoteList.Random()` picks one.
 
 ### Config system
 
