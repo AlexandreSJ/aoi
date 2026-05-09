@@ -20,9 +20,30 @@
   <br>
 
   <a href="https://www.buymeacoffee.com/aelxand" target="_blank">
-    <img width=120px src="blue-button.png" alt="Buy Me A Coffee">
+    <img width=120px src="assets/bmc/bmc.png" alt="Buy Me A Coffee">
   </a>
 
+  <br>
+
+  <a href="README-ptBR.md">
+    (README 🇧🇷)
+  </a>
+</div>
+
+## What is Aoi?
+
+I started to like doing typing tests for hobby and keeping my digitation skills sharp, but always wanted it in a TUI. So i made AOI!
+
+Choose 4 different modes of typing practice in Aoi:
+- Zen: Type infinitely at your own pace
+- Timed: Race against the clock
+- Count: Type a fixed number of words
+- Quote: Type a random quote
+
+Configure the colors anyway you like. You can also add more words or quotes, scalable to use any language you want!
+
+<div align="center">
+  <img width=100% src="assets/prints/typing.png" alt="Typing">
 </div>
 
 ## Installation
