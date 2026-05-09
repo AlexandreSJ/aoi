@@ -125,7 +125,6 @@ func (c configModel) footerSegments() []string {
 		shortKey := c.editKey[strings.LastIndex(c.editKey, ".")+1:]
 		swatch := FooterSwatch(selected, c.cfg.Colors.Footer)
 		return []string{
-			footerVersion,
 			fmt.Sprintf("Selected (%s): %s %3s", shortKey, swatch, selected),
 			"\u2191\u2193\u2190\u2192: pick",
 			"enter: confirm",
@@ -133,9 +132,9 @@ func (c configModel) footerSegments() []string {
 		}
 	}
 	if c.editing {
-		return []string{footerVersion, "enter: confirm", "esc: cancel"}
+		return []string{"enter: confirm", "esc: cancel"}
 	}
-	return []string{footerVersion, "\u2191/\u2193: nav", "enter: edit", "c/esc: back"}
+	return []string{"\u2191/\u2193: nav", "enter: edit", "c/esc: back"}
 }
 
 func (c configModel) Update(msg tea.Msg) (configModel, tea.Cmd) {

@@ -626,7 +626,6 @@ func (t typingModel) footerSegments() []string {
 		tabLabel = "tab: show"
 	}
 	return []string{
-		footerVersion,
 		fmt.Sprintf("%s | %s", modeLabel, t.wordListName),
 		fmt.Sprintf("%s ok / %s err", okStr, errStr),
 		status,
@@ -642,7 +641,7 @@ func (t typingModel) View() string {
 	}
 
 	if t.err != "" {
-		footer := []string{footerVersion, "esc: back"}
+		footer := []string{"esc: back"}
 		body := t.layout.Styles.Error.Render(t.err)
 		return t.layout.Render("A O I", footer, body)
 	}
@@ -797,7 +796,7 @@ func (t typingModel) renderText() string {
 	errorCursorStyle := lipgloss.NewStyle().Background(lipgloss.Color(errorColor)).Bold(true)
 	successCursorStyle := lipgloss.NewStyle().Background(lipgloss.Color(successColor)).Bold(true)
 	pendingCursorStyle := lipgloss.NewStyle().Background(lipgloss.Color(primary)).Bold(true)
-	pendingStyle := t.layout.Styles.Dim.Bold(true)
+	pendingStyle := t.layout.Styles.Text.Bold(true)
 
 	innerWidth := max(1, t.layout.Width-8)
 	var b strings.Builder

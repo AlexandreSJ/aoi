@@ -1,12 +1,12 @@
-.PHONY: build run clean
+.PHONY: build run clean version patch minor major release
 
-BINARY   := aoi
+BINARY    := aoi
 BUILD_DIR := ./build
-STYLES_GO  := internal/ui/styles.go
+LDFLAGS   := -ldflags "-s -w"
 
 build:
 	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(BINARY) ./cmd/$(BINARY)
+	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY) ./cmd/$(BINARY)
 
 run: build
 	$(BUILD_DIR)/$(BINARY)
@@ -14,20 +14,17 @@ run: build
 clean:
 	rm -rf $(BUILD_DIR)
 
-# Version management
-CURRENT_VERSION := $(shell grep 'const footerVersion' $(STYLES_GO) | sed 's/.*"\(.*\)"/\1/')
-
 version:
-	@echo "Current version: $(CURRENT_VERSION)"
+	@bash -c 'TAG=$$(git tag --sort=-version:refname | head -1); echo "$${TAG:-no tags yet}"'
 
-patch: version
-	@bash -c 'VERSION_NUMBERS="$$(echo "$(CURRENT_VERSION)" | sed "s/^v//")"; MAJOR=$$(echo $$VERSION_NUMBERS | cut -d. -f1); MINOR=$$(echo $$VERSION_NUMBERS | cut -d. -f2); PATCH=$$(echo $$VERSION_NUMBERS | cut -d. -f3); NEW_PATCH=$$((PATCH + 1)); NEW_VERSION="v$$MAJOR.$$MINOR.$$NEW_PATCH"; sed -i "s/const footerVersion = \".*\"/const footerVersion = \"$$NEW_VERSION\"/" $(STYLES_GO); echo "Updated to: $$NEW_VERSION"'
+patch:
+	@bash -c 'TAG=$$(git tag --sort=-version:refname | head -1); CURRENT=$${TAG:-v0.0.0}; V=$${CURRENT#v}; IFS=. read MAJOR MINOR PATCH <<< "$$V"; NEW="v$$MAJOR.$$MINOR.$$((PATCH+1))"; git tag $$NEW && echo "Created tag: $$NEW"'
 
-minor: version
-	@bash -c 'VERSION_NUMBERS="$$(echo "$(CURRENT_VERSION)" | sed "s/^v//")"; MAJOR=$$(echo $$VERSION_NUMBERS | cut -d. -f1); MINOR=$$(echo $$VERSION_NUMBERS | cut -d. -f2); NEW_MINOR=$$((MINOR + 1)); NEW_VERSION="v$$MAJOR.$$NEW_MINOR.0"; sed -i "s/const footerVersion = \".*\"/const footerVersion = \"$$NEW_VERSION\"/" $(STYLES_GO); echo "Updated to: $$NEW_VERSION"'
+minor:
+	@bash -c 'TAG=$$(git tag --sort=-version:refname | head -1); CURRENT=$${TAG:-v0.0.0}; V=$${CURRENT#v}; IFS=. read MAJOR MINOR PATCH <<< "$$V"; NEW="v$$MAJOR.$$((MINOR+1)).0"; git tag $$NEW && echo "Created tag: $$NEW"'
 
-major: version
-	@bash -c 'VERSION_NUMBERS="$$(echo "$(CURRENT_VERSION)" | sed "s/^v//")"; MAJOR=$$(echo $$VERSION_NUMBERS | cut -d. -f1); NEW_MAJOR=$$((MAJOR + 1)); NEW_VERSION="v$$NEW_MAJOR.0.0"; sed -i "s/const footerVersion = \".*\"/const footerVersion = \"$$NEW_VERSION\"/" $(STYLES_GO); echo "Updated to: $$NEW_VERSION"'
+major:
+	@bash -c 'TAG=$$(git tag --sort=-version:refname | head -1); CURRENT=$${TAG:-v0.0.0}; V=$${CURRENT#v}; IFS=. read MAJOR MINOR PATCH <<< "$$V"; NEW="v$$((MAJOR+1)).0.0"; git tag $$NEW && echo "Created tag: $$NEW"'
 
 release:
-	@echo "New tag created ($(CURRENT_VERSION)). Push using --tags"
+	git push origin main --tags

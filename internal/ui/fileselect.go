@@ -98,7 +98,6 @@ func (f fileSelectModel) footerSegments() []string {
 		dir = "quotes"
 	}
 	return []string{
-		footerVersion,
 		fmt.Sprintf("mode: %s | %s", f.mode, dir),
 		"\u2191/\u2193: pick",
 		"enter: start",

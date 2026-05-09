@@ -143,7 +143,6 @@ func (h homeModel) View() string {
 	)
 
 	footer := []string{
-		footerVersion,
 		fmt.Sprintf("mode: %s", h.modeLabel()),
 		"\u2190/\u2192: mode",
 		"enter: start",
