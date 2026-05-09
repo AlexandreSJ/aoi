@@ -47,7 +47,7 @@ source ~/.zshrc
 source ~/.bashrc
 
 # Finally, install directly from GitHub
-go install github.com/AlexandreSJ/aoi/cmd/aoi@latest
+go install -a github.com/AlexandreSJ/aoi/cmd/aoi@latest
 ```
 
 #### Method 2: Build from Source (for developers)
@@ -102,6 +102,10 @@ A: Try setting `TERM=xterm-256color` or use a terminal that supports true color.
 
 **Q: The application won't start**
 A: Ensure you have Go 1.24+ installed and that your terminal supports Unicode characters.
+
+**Q: I am having trouble installing/updating aoi to the latest version**
+A: If you already have Go installed, run the following command to avoid the proxy.golang.org and use `-a` tag to force rebuild:
+`GOPROXY=direct go install -a github.com/AlexandreSJ/aoi/cmd/aoi@latest`
 
 <div align="center">
   <a href="https://git.io/typing-svg">

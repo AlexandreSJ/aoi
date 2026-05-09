@@ -17,7 +17,7 @@ const fallbackFooter = "16"
 const fallbackError = "162"
 const fallbackSuccess = "39"
 
-const footerVersion = "Aoi v0.1.0"
+const footerVersion = "v0.2.0"
 
 const layoutOverhead = 3
 
