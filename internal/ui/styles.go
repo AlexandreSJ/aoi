@@ -123,6 +123,40 @@ func (l Layout) Render(title string, footerSegments []string, bodyContent string
 	return l.Styles.Layout(l.Width, l.Height, title, footerSegments, bodyContent, bodyHeight)
 }
 
+func (l Layout) CenterBody(bodyContent string, bodyHeight int) string {
+	innerWidth := maxWidth(1, l.Width-8) // match typing screen: width minus border+padding
+	bodyContent = strings.TrimRight(bodyContent, "\n")
+	lines := strings.Split(bodyContent, "\n")
+
+	// Horizontal centering per line
+	var centered strings.Builder
+	for _, line := range lines {
+		centered.WriteString(lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center).Render(line))
+		centered.WriteString("\n")
+	}
+
+	// Vertical centering
+	contentLines := len(lines)
+	padAbove := 0
+	if bodyHeight > contentLines {
+		padAbove = (bodyHeight - contentLines) / 2
+	}
+
+	var b strings.Builder
+	for i := 0; i < padAbove; i++ {
+		b.WriteString("\n")
+	}
+	b.WriteString(centered.String())
+	return b.String()
+}
+
+func maxWidth(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func (s Styles) RenderFooter(segments []string, width int) string {
 	if width < 1 {
 		width = 1

@@ -119,6 +119,7 @@ func (f fileSelectModel) View() string {
 	footerSegs := f.footerSegments()
 	bodyHeight := f.layout.BodyHeight(footerSegs)
 	body := f.renderList(bodyHeight, dir)
+	body = f.layout.CenterBody(body, bodyHeight)
 	return f.layout.Render("A O I", footerSegs, body)
 }
 

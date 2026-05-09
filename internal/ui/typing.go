@@ -36,7 +36,7 @@ type tickMsg time.Time
 type flashMsg struct{}
 
 func flashCmd() tea.Cmd {
-	return tea.Tick(1000*time.Millisecond, func(time.Time) tea.Msg { return flashMsg{} })
+	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg { return flashMsg{} })
 }
 
 type typingModel struct {
@@ -441,7 +441,6 @@ func (t *typingModel) trimCompleted() {
 	t.scrollOffset = 0
 }
 
-
 func (t typingModel) computeLines(availWidth int) []textLine {
 	if availWidth < 1 || len(t.chars) == 0 {
 		return nil
@@ -841,10 +840,10 @@ func (t typingModel) renderText() string {
 				}
 			}
 		}
-			lineStr := lineBuf.String()
-			centered := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center).Render(lineStr)
-			b.WriteString(centered)
-			b.WriteString("\n")
+		lineStr := lineBuf.String()
+		centered := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center).Render(lineStr)
+		b.WriteString(centered)
+		b.WriteString("\n")
 	}
 
 	return b.String()

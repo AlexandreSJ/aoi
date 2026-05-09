@@ -25,10 +25,10 @@ var modeNames = []string{
 }
 
 var modeDescriptions = []string{
-	"type infinitely, just practice at your own pace",
-	"race against the clock, type as many words as you can",
-	"type a fixed number of words as fast as you can",
-	"type a random quote from start to finish",
+	"Type infinitely at your own pace",
+	"Race against the clock",
+	"Type a fixed number of words",
+	"Type a random quote",
 }
 
 var defaultTimedSeconds = 30
@@ -42,11 +42,11 @@ func (m gameMode) String() string {
 }
 
 type homeModel struct {
-	layout      Layout
-	cfg         *config.Config
-	modeIdx     int
-	wordFiles   []string
-	wordIdx     int
+	layout    Layout
+	cfg       *config.Config
+	modeIdx   int
+	wordFiles []string
+	wordIdx   int
 
 	timedSeconds int
 	wordCount    int
@@ -111,32 +111,32 @@ func (h homeModel) View() string {
 		}
 	}
 
-	help := ""
-	switch currentMode {
-	case modeTimed:
-		help = fmt.Sprintf(
-			"\nPress %s/%s to adjust time. Type a number to set custom time.",
-			h.layout.Styles.Marker.Render("\u2191"),
-			h.layout.Styles.Marker.Render("\u2193"),
-		)
-	case modeCount:
-		help = fmt.Sprintf(
-			"\nPress %s/%s to adjust count. Type a number to set custom count.",
-			h.layout.Styles.Marker.Render("\u2191"),
-			h.layout.Styles.Marker.Render("\u2193"),
-		)
-	}
-
 	desc := ""
 	if int(currentMode) < len(modeDescriptions) {
-		desc = "\n" + h.layout.Styles.Dim.Render(modeDescriptions[currentMode])
+		desc = "\n" + modeDescriptions[currentMode]
+	}
+
+	help := "\n"
+	switch currentMode {
+	case modeTimed:
+		help = "\n" + h.layout.Styles.Dim.Render("Press ") +
+			h.layout.Styles.Marker.Render("\u2191") +
+			h.layout.Styles.Dim.Render("/") +
+			h.layout.Styles.Marker.Render("\u2193") +
+			h.layout.Styles.Dim.Render(" or type a number to adjust time")
+	case modeCount:
+		help = "\n" + h.layout.Styles.Dim.Render("Press ") +
+			h.layout.Styles.Marker.Render("\u2191") +
+			h.layout.Styles.Dim.Render("/") +
+			h.layout.Styles.Marker.Render("\u2193") +
+			h.layout.Styles.Dim.Render(" or type a number to adjust count")
 	}
 
 	body := fmt.Sprintf(
 		"Mode:\n%s%s%s\n\nPress %s to start typing.\nPress %s to open config.\nPress %s to quit.",
 		modeDisplay,
-		help,
 		desc,
+		help,
 		h.layout.Styles.Marker.Render("enter"),
 		h.layout.Styles.Dim.Render("c"),
 		h.layout.Styles.Dim.Render("q"),
@@ -150,5 +150,8 @@ func (h homeModel) View() string {
 		"c: config",
 		"q: quit",
 	}
+
+	bodyHeight := h.layout.BodyHeight(footer)
+	body = h.layout.CenterBody(body, bodyHeight)
 	return h.layout.Render("A O I", footer, body)
 }

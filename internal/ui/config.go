@@ -12,7 +12,6 @@ import (
 var pickerColors []string
 
 type pickerSection struct {
-	name  string
 	start int
 	count int
 	cols  int
@@ -25,7 +24,7 @@ func init() {
 	for i := 0; i < 16; i++ {
 		pickerColors = append(pickerColors, fmt.Sprintf("%d", i))
 	}
-	pickerSections = append(pickerSections, pickerSection{"Standard", standardStart, 16, 8})
+	pickerSections = append(pickerSections, pickerSection{standardStart, 16, 8})
 
 	cubeStart := len(pickerColors)
 	for r := 0; r < 6; r++ {
@@ -35,19 +34,19 @@ func init() {
 			}
 		}
 	}
-	pickerSections = append(pickerSections, pickerSection{"Cube", cubeStart, 216, 18})
+	pickerSections = append(pickerSections, pickerSection{cubeStart, 216, 18})
 
 	grayStart := len(pickerColors)
 	for i := 232; i <= 255; i++ {
 		pickerColors = append(pickerColors, fmt.Sprintf("%d", i))
 	}
-	pickerSections = append(pickerSections, pickerSection{"Grayscale", grayStart, 24, 12})
+	pickerSections = append(pickerSections, pickerSection{grayStart, 24, 12})
 }
 
 type configModel struct {
-	layout Layout
-	cfg    *config.Config
-	keys   []string
+	layout   Layout
+	cfg      *config.Config
+	keys     []string
 	sections []config.Section
 	cursor   int
 	scroll   int
@@ -94,10 +93,7 @@ type displayItem struct {
 
 func (c configModel) buildDisplayItems() []displayItem {
 	var items []displayItem
-	for si, s := range c.sections {
-		if si > 0 {
-			items = append(items, displayItem{kind: "spacing"})
-		}
+	for _, s := range c.sections {
 		items = append(items, displayItem{kind: "subtitle", text: s.Title})
 		for _, k := range s.Keys {
 			hint := ""
@@ -185,12 +181,13 @@ func (c configModel) handleNav(msg tea.KeyMsg) (configModel, tea.Cmd) {
 }
 
 func (c configModel) handleEdit(msg tea.KeyMsg) (configModel, tea.Cmd) {
-	switch msg.Type {
-	case tea.KeyEsc:
+	s := msg.String()
+	switch {
+	case s == "esc":
 		c.editing = false
 		c.input = ""
 		c.err = ""
-	case tea.KeyEnter:
+	case s == "enter":
 		input := strings.TrimSpace(c.input)
 		c.cfg.Set(c.editKey, input)
 		if err := config.Save(c.cfg); err != nil {
@@ -200,12 +197,23 @@ func (c configModel) handleEdit(msg tea.KeyMsg) (configModel, tea.Cmd) {
 		c.editing = false
 		c.input = ""
 		c.err = ""
-	case tea.KeyBackspace:
+	case s == "backspace":
 		if len(c.input) > 0 {
 			c.input = c.input[:len(c.input)-1]
 		}
-	case tea.KeyRunes:
-		c.input += string(msg.Runes)
+	case s == "ctrl+u":
+		c.input = ""
+	case s == "ctrl+w":
+		c.input = strings.TrimRight(c.input, " ")
+		if idx := strings.LastIndex(c.input, " "); idx >= 0 {
+			c.input = c.input[:idx+1]
+		} else {
+			c.input = ""
+		}
+	default:
+		if msg.Type == tea.KeyRunes {
+			c.input += string(msg.Runes)
+		}
 	}
 	return c, nil
 }
@@ -257,7 +265,7 @@ func (c configModel) adjustPickerScroll() configModel {
 	}
 	if cursorLine < 0 {
 		for i, pl := range lines {
-			if pl.idx != -1 && pl.idx+pl.cellCount > c.pickerIdx {
+			if pl.idx >= 0 && pl.idx+pl.cellCount > c.pickerIdx {
 				cursorLine = i
 				break
 			}
@@ -269,13 +277,8 @@ func (c configModel) adjustPickerScroll() configModel {
 
 	avail := c.layout.BodyHeight(c.footerSegments())
 
-	targetLine := cursorLine
-	if cursorLine > 0 && lines[cursorLine-1].idx == -1 {
-		targetLine = cursorLine - 1
-	}
-
-	if targetLine < c.pickerScroll {
-		c.pickerScroll = targetLine
+	if cursorLine < c.pickerScroll {
+		c.pickerScroll = cursorLine
 	}
 	if cursorLine >= c.pickerScroll+avail {
 		c.pickerScroll = cursorLine - avail + 1
@@ -296,7 +299,6 @@ type pickerLine struct {
 func (c configModel) buildPickerLines() []pickerLine {
 	var lines []pickerLine
 	for _, sec := range pickerSections {
-		lines = append(lines, pickerLine{text: sec.name + ":", idx: -1, cellCount: 0})
 		var row strings.Builder
 		row.WriteString("  ")
 		rowCells := 0
@@ -312,7 +314,6 @@ func (c configModel) buildPickerLines() []pickerLine {
 			rowCells++
 		}
 		lines = append(lines, pickerLine{text: row.String(), idx: sec.start + ((sec.count-1)/sec.cols)*sec.cols, cellCount: rowCells})
-		lines = append(lines, pickerLine{text: "", idx: -1, cellCount: 0})
 	}
 	return lines
 }
@@ -331,6 +332,19 @@ func (c configModel) pickerColInSection(secIdx int) int {
 	return (c.pickerIdx - sec.start) % sec.cols
 }
 
+// sectionCenteringOffset returns how many picker columns of left-padding
+// centering adds to the given section. Each cell is 2 chars wide.
+func (c configModel) sectionCenteringOffset(secIdx int) int {
+	innerWidth := max(1, c.layout.Width-8) // matches CenterBody calculation
+	sec := pickerSections[secIdx]
+	secWidth := sec.cols * 2
+	leftPad := (innerWidth - secWidth) / 2
+	if leftPad < 0 {
+		leftPad = 0
+	}
+	return leftPad / 2
+}
+
 func (c configModel) pickerUp() int {
 	secIdx := c.pickerSectionIdx()
 	sec := pickerSections[secIdx]
@@ -343,7 +357,17 @@ func (c configModel) pickerUp() int {
 		return c.pickerIdx
 	}
 	prevSec := pickerSections[secIdx-1]
-	targetCol := min(col, prevSec.cols-1)
+
+	// Adjust column for visual centering difference
+	visualPos := c.sectionCenteringOffset(secIdx) + col
+	targetCol := visualPos - c.sectionCenteringOffset(secIdx-1)
+	if targetCol < 0 {
+		targetCol = 0
+	}
+	if targetCol >= prevSec.cols {
+		targetCol = prevSec.cols - 1
+	}
+
 	lastRowStart := prevSec.start + ((prevSec.count-1)/prevSec.cols)*prevSec.cols
 	idx := lastRowStart + targetCol
 	if idx >= prevSec.start+prevSec.count {
@@ -365,7 +389,17 @@ func (c configModel) pickerDown() int {
 		return c.pickerIdx
 	}
 	nextSec := pickerSections[secIdx+1]
-	targetCol := min(col, nextSec.cols-1)
+
+	// Adjust column for visual centering difference
+	visualPos := c.sectionCenteringOffset(secIdx) + col
+	targetCol := visualPos - c.sectionCenteringOffset(secIdx+1)
+	if targetCol < 0 {
+		targetCol = 0
+	}
+	if targetCol >= nextSec.cols {
+		targetCol = nextSec.cols - 1
+	}
+
 	idx := nextSec.start + targetCol
 	if idx >= nextSec.start+nextSec.count {
 		idx = nextSec.start + nextSec.count - 1
@@ -407,11 +441,13 @@ func (c configModel) View() string {
 	var bodyContent string
 	if c.picker {
 		bodyContent = c.renderPicker(bodyHeight)
+		bodyContent = c.layout.CenterBody(bodyContent, bodyHeight)
 	} else {
 		bodyContent = c.renderList(c.layout.Width-4, bodyHeight)
+		bodyContent = c.layout.CenterBody(bodyContent, bodyHeight)
 	}
 
-	return c.layout.Render("Config", segments, bodyContent)
+	return c.layout.Render("C F G", segments, bodyContent)
 }
 
 func (c configModel) renderList(availWidth, maxLines int) string {
@@ -425,9 +461,6 @@ func (c configModel) renderList(availWidth, maxLines int) string {
 		}
 		item := c.items[i]
 		switch item.kind {
-		case "spacing":
-			b.WriteString("\n")
-			lineCount++
 		case "subtitle":
 			b.WriteString(c.layout.Styles.Subtitle.Render(fmt.Sprintf("  %s", item.text)) + "\n")
 			lineCount++
@@ -445,17 +478,34 @@ func (c configModel) renderList(availWidth, maxLines int) string {
 			if config.IsColorKey(key) {
 				swatch := lipgloss.NewStyle().
 					Foreground(lipgloss.Color(value)).
-					Render("\u2588\u2588")
-				line = fmt.Sprintf("%s %s %s: %s", marker, swatch, shortKey, value)
+					Render("\u2588\u2588\u2588\u2588")
+				labelWidth := lipgloss.Width(fmt.Sprintf("%s:%s %s", shortKey, value, swatch))
+				padding := max(0, 20-labelWidth)
+				line = fmt.Sprintf("%s %s: %s %s %s", marker, shortKey, strings.Repeat(" ", padding), value, swatch)
 			} else {
-				line = fmt.Sprintf("%s   %s: %s", marker, shortKey, value)
-				if item.hint != "" && !(c.editing && c.editKey == key) {
-					line += c.layout.Styles.Dim.Render(fmt.Sprintf("  %s", item.hint))
+				// maxValW := availWidth - lipgloss.Width(prefix) - 2
+				maxValW := 16
+				if maxValW < 4 {
+					maxValW = 4
 				}
-			}
 
-			if c.editing && c.editKey == key {
-				line = fmt.Sprintf("%s   %s: %s\u2588", marker, shortKey, c.input)
+				labelWidth := lipgloss.Width(fmt.Sprintf("%s: [%s]", shortKey, value))
+				padding := max(0, 30-labelWidth)
+				prefix := fmt.Sprintf("%s %s: %s", marker, shortKey, strings.Repeat(" ", padding))
+
+				if c.editing && c.editKey == key {
+					displayVal := c.input + "\u2588"
+					if lipgloss.Width(displayVal) > maxValW {
+						displayVal = truncatePrefix(displayVal, 22)
+					}
+					line = fmt.Sprintf("%s[%s]", prefix, displayVal)
+				} else {
+					displayVal := value
+					if lipgloss.Width(displayVal) > maxValW {
+						displayVal = truncatePrefix(displayVal, 22-1)
+					}
+					line = fmt.Sprintf("%s[%s]", prefix, displayVal)
+				}
 			}
 
 			if availWidth > 0 && lipgloss.Width(line) > availWidth {
@@ -470,6 +520,35 @@ func (c configModel) renderList(availWidth, maxLines int) string {
 		b.WriteString("\n" + c.layout.Styles.Error.Render(c.err))
 	}
 
+	return b.String()
+}
+
+func truncatePrefix(s string, maxW int) string {
+	if lipgloss.Width(s) <= maxW {
+		return s
+	}
+	// Keep "..." + as many trailing chars as fit
+	if maxW <= 3 {
+		return "..."
+	}
+	target := maxW - 3
+	width := 0
+	var b strings.Builder
+	// Walk backwards to keep the tail
+	runes := []rune(s)
+	start := len(runes)
+	for i := len(runes) - 1; i >= 0; i-- {
+		w := lipgloss.Width(string(runes[i]))
+		if width+w > target {
+			break
+		}
+		width += w
+		start = i
+	}
+	b.WriteString("...")
+	for _, r := range runes[start:] {
+		b.WriteRune(r)
+	}
 	return b.String()
 }
 
@@ -525,19 +604,25 @@ func (c configModel) renderPicker(avail int) string {
 
 	var b strings.Builder
 
+	errLine := 0
 	if c.err != "" {
 		b.WriteString(c.layout.Styles.Error.Render(c.err) + "\n")
+		errLine = 1
 	}
 
-	for i, pl := range visible {
+	// Recalculate visible slice accounting for error line
+	pickerAvail := avail - errLine
+	if pickerAvail < 1 {
+		pickerAvail = 1
+	}
+	end = scroll + pickerAvail
+	if end > len(allLines) {
+		end = len(allLines)
+	}
+	visible = allLines[scroll:end]
+
+	for _, pl := range visible {
 		if pl.text == "" {
-			if i < len(visible)-1 && visible[i+1].text != "" {
-				b.WriteString("\n")
-			}
-			continue
-		}
-		if pl.idx == -1 {
-			b.WriteString(c.layout.Styles.Subtitle.Render("  "+pl.text) + "\n")
 			continue
 		}
 		b.WriteString(pl.text + "\n")
@@ -552,9 +637,10 @@ func (c configModel) renderPickerCell(idx int) string {
 	color := pickerColors[idx]
 	if idx == c.pickerIdx {
 		return lipgloss.NewStyle().
-			Foreground(lipgloss.Color(color)).
-			Background(lipgloss.Color("#FFFFFF")).
-			Render("\u2593\u2593")
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.Color(color)).
+			Bold(true).
+			Render("[]")
 	}
 	return lipgloss.NewStyle().
 		Foreground(lipgloss.Color(color)).
