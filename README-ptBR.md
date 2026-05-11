@@ -30,6 +30,16 @@
   </a>
 </div>
 
+## Sumário
+
+- [O que é o Aoi?](#o-que-é-o-aoi)
+- [Instalação](#instalação)
+- [Uso](#uso)
+- [Recursos](#recursos)
+- [Configuração](#configuração)
+- [Solução de Problemas](#solução-de-problemas)
+- [Licença](#licença)
+
 ## O que é o Aoi?
 
 Comecei a gostar de fazer testes de digitação como hobby e para manter minhas habilidades de digitação afiadas, mas sempre quis isso em uma TUI. Então criei o AOI!
@@ -127,6 +137,14 @@ R: Certifique-se de ter o Go 1.24+ instalado e que seu terminal suporta caracter
 **P: Estou tendo problemas para instalar/atualizar o aoi para a versão mais recente**
 R: Se você já tem o Go instalado, execute o seguinte comando para evitar o proxy.golang.org e usar a tag `-a` para forçar a recompilação:
 `GOPROXY=direct go install -a github.com/AlexandreSJ/aoi/cmd/aoi@latest`
+
+### Contribuindo
+
+Contribuições são bem-vindas! Sinta-se à vontade para enviar um Pull Request.
+
+### Licença
+
+MIT
 
 <div align="center">
   <a href="https://git.io/typing-svg">

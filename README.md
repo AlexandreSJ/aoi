@@ -30,6 +30,16 @@
   </a>
 </div>
 
+## Table of Contents
+
+- [What is Aoi?](#what-is-aoi)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Features](#features)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
 ## What is Aoi?
 
 I started to like doing typing tests for hobby and keeping my digitation skills sharp, but always wanted it in a TUI. So i made AOI!
@@ -127,6 +137,14 @@ A: Ensure you have Go 1.24+ installed and that your terminal supports Unicode ch
 **Q: I am having trouble installing/updating aoi to the latest version**
 A: If you already have Go installed, run the following command to avoid the proxy.golang.org and use `-a` tag to force rebuild:
 `GOPROXY=direct go install -a github.com/AlexandreSJ/aoi/cmd/aoi@latest`
+
+### Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+### License
+
+MIT
 
 <div align="center">
   <a href="https://git.io/typing-svg">
