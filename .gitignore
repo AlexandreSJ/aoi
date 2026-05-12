@@ -19,3 +19,6 @@ aoi
 *.swp
 *.swo
 *~
+
+# Dotfiles and dirs
+.*
