@@ -26,7 +26,7 @@ func Default() *Config {
 			Success:   "75",
 		},
 		System: System{
-			ConfigPath: "~/.config/aoi",
+			ConfigPath: "~/.config/aoi/config.yaml",
 			WordsDir:   "~/.config/aoi/words",
 			QuotesDir:  "~/.config/aoi/quotes",
 		},
@@ -81,16 +81,11 @@ func IsColorKey(key string) bool {
 }
 
 func IsInlineHintKey(key string) bool {
-	return key == "system.config"
+	return false
 }
 
 func InlineHint(key string) string {
-	switch key {
-	case "system.config":
-		return "/config.yaml"
-	default:
-		return ""
-	}
+	return ""
 }
 
 func (c Config) Get(key string) string {
@@ -162,19 +157,25 @@ func expandPath(path string) (string, error) {
 }
 
 func resolveConfigPath(cfg *Config) (string, error) {
-	if cfg.System.ConfigPath != "" && cfg.System.ConfigPath != "~/.config/aoi" {
-		path, err := expandPath(cfg.System.ConfigPath)
+	raw := cfg.System.ConfigPath
+	if raw == "" || raw == "~/.config/aoi" || raw == "~/.config/aoi/config.yaml" {
+		home, err := os.UserHomeDir()
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("get home dir: %w", err)
 		}
-		return filepath.Join(path, "config.yaml"), nil
+		return filepath.Join(home, ".config", "aoi", "config.yaml"), nil
 	}
 
-	home, err := os.UserHomeDir()
+	path, err := expandPath(raw)
 	if err != nil {
-		return "", fmt.Errorf("get home dir: %w", err)
+		return "", err
 	}
-	return filepath.Join(home, ".config", "aoi", "config.yaml"), nil
+
+	if filepath.Ext(path) == "" {
+		path = filepath.Join(path, "config.yaml")
+	}
+
+	return path, nil
 }
 
 func ResolveDir(raw string, fallback string) (string, error) {

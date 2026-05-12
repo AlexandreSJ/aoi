@@ -53,10 +53,11 @@ type configModel struct {
 
 	items []displayItem
 
-	editing bool
-	editKey string
-	input   string
-	err     string
+	editing    bool
+	editKey    string
+	input      string
+	editCursor int
+	err        string
 
 	picker       bool
 	pickerIdx    int
@@ -173,6 +174,7 @@ func (c configModel) handleNav(msg tea.KeyMsg) (configModel, tea.Cmd) {
 		} else {
 			c.editing = true
 			c.input = c.cfg.Get(c.editKey)
+			c.editCursor = len([]rune(c.input))
 			c.err = ""
 		}
 	}
@@ -180,11 +182,14 @@ func (c configModel) handleNav(msg tea.KeyMsg) (configModel, tea.Cmd) {
 }
 
 func (c configModel) handleEdit(msg tea.KeyMsg) (configModel, tea.Cmd) {
+	runes := []rune(c.input)
 	s := msg.String()
+
 	switch {
 	case s == "esc":
 		c.editing = false
 		c.input = ""
+		c.editCursor = 0
 		c.err = ""
 	case s == "enter":
 		input := strings.TrimSpace(c.input)
@@ -195,26 +200,65 @@ func (c configModel) handleEdit(msg tea.KeyMsg) (configModel, tea.Cmd) {
 		}
 		c.editing = false
 		c.input = ""
+		c.editCursor = 0
 		c.err = ""
 	case s == "backspace":
-		if len(c.input) > 0 {
-			c.input = c.input[:len(c.input)-1]
+		if c.editCursor > 0 {
+			c.input = string(runes[:c.editCursor-1]) + string(runes[c.editCursor:])
+			c.editCursor--
 		}
+	case s == "delete":
+		if c.editCursor < len(runes) {
+			c.input = string(runes[:c.editCursor]) + string(runes[c.editCursor+1:])
+		}
+	case s == "left":
+		if c.editCursor > 0 {
+			c.editCursor--
+		}
+	case s == "right":
+		if c.editCursor < len(runes) {
+			c.editCursor++
+		}
+	case s == "home", s == "ctrl+a":
+		c.editCursor = 0
+	case s == "end", s == "ctrl+e":
+		c.editCursor = len([]rune(c.input))
 	case s == "ctrl+u":
-		c.input = ""
-	case s == "ctrl+w":
-		c.input = strings.TrimRight(c.input, " ")
-		if idx := strings.LastIndex(c.input, " "); idx >= 0 {
-			c.input = c.input[:idx+1]
-		} else {
-			c.input = ""
+		c.input = string(runes[c.editCursor:])
+		c.editCursor = 0
+	case s == "ctrl+k":
+		c.input = string(runes[:c.editCursor])
+	case s == "ctrl+w", s == "ctrl+backspace":
+		pos := c.editCursor
+		for pos > 0 && isEditWordSep(runes[pos-1]) {
+			pos--
 		}
+		for pos > 0 && !isEditWordSep(runes[pos-1]) {
+			pos--
+		}
+		c.input = string(runes[:pos]) + string(runes[c.editCursor:])
+		c.editCursor = pos
+	case s == "ctrl+delete":
+		pos := c.editCursor
+		for pos < len(runes) && !isEditWordSep(runes[pos]) {
+			pos++
+		}
+		for pos < len(runes) && isEditWordSep(runes[pos]) {
+			pos++
+		}
+		c.input = string(runes[:c.editCursor]) + string(runes[pos:])
 	default:
 		if msg.Type == tea.KeyRunes {
-			c.input += string(msg.Runes)
+			inserted := string(msg.Runes)
+			c.input = string(runes[:c.editCursor]) + inserted + string(runes[c.editCursor:])
+			c.editCursor += len([]rune(inserted))
 		}
 	}
 	return c, nil
+}
+
+func isEditWordSep(r rune) bool {
+	return r == '/' || r == ' '
 }
 
 func (c configModel) handlePicker(msg tea.KeyMsg) (configModel, tea.Cmd) {
@@ -449,6 +493,89 @@ func (c configModel) View() string {
 	return c.layout.Render("C F G", segments, bodyContent)
 }
 
+func editViewport(runes []rune, cursor, fieldWidth int) (start, end int, leftEllip, rightEllip bool) {
+	n := len(runes)
+	effLen := n
+	if cursor >= n {
+		effLen = n + 1
+	}
+	if effLen <= fieldWidth {
+		return 0, n, false, false
+	}
+
+	useEllip := fieldWidth >= 5
+	reserve := 0
+	if useEllip {
+		reserve = 2
+	}
+	if cursor >= n {
+		reserve++
+	}
+
+	visWidth := fieldWidth - reserve
+	if visWidth < 1 {
+		visWidth = 1
+	}
+
+	target := cursor
+	if target >= n {
+		target = n - 1
+	}
+	if target < 0 {
+		target = 0
+	}
+
+	start = target - visWidth/2
+	if start < 0 {
+		start = 0
+	}
+	end = start + visWidth
+	if end > n {
+		end = n
+		start = end - visWidth
+		if start < 0 {
+			start = 0
+		}
+	}
+
+	return start, end, useEllip && start > 0, useEllip && end < n
+}
+
+func renderEditValue(runes []rune, cursor, fieldWidth int, primaryColor, textColor string) string {
+	n := len(runes)
+	start, end, leftEllip, rightEllip := editViewport(runes, cursor, fieldWidth)
+
+	cursorStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color(primaryColor)).
+		Bold(true)
+	normalStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(textColor))
+
+	var b strings.Builder
+
+	if leftEllip {
+		b.WriteString(normalStyle.Render("..."))
+	}
+
+	for i := start; i < end; i++ {
+		ch := string(runes[i])
+		if i == cursor {
+			b.WriteString(cursorStyle.Render(ch))
+		} else {
+			b.WriteString(normalStyle.Render(ch))
+		}
+	}
+
+	if cursor == n && n >= start {
+		b.WriteString(cursorStyle.Render(""))
+	}
+
+	if rightEllip {
+		b.WriteString(normalStyle.Render(""))
+	}
+
+	return b.String()
+}
+
 func (c configModel) renderList(availWidth, maxLines int) string {
 	dIdx := c.cursorToDisplayIdx()
 
@@ -482,27 +609,33 @@ func (c configModel) renderList(availWidth, maxLines int) string {
 				padding := max(0, 20-labelWidth)
 				line = fmt.Sprintf("%s %s: %s %s %s", marker, shortKey, strings.Repeat(" ", padding), value, swatch)
 			} else {
-				// maxValW := availWidth - lipgloss.Width(prefix) - 2
-				maxValW := 16
-				if maxValW < 4 {
-					maxValW = 4
-				}
-
-				labelWidth := lipgloss.Width(fmt.Sprintf("%s: [%s]", shortKey, value))
-				padding := max(0, 30-labelWidth)
-				prefix := fmt.Sprintf("%s %s: %s", marker, shortKey, strings.Repeat(" ", padding))
+				maxValW := 25
 
 				if c.editing && c.editKey == key {
-					displayVal := c.input + "\u2588"
-					if lipgloss.Width(displayVal) > maxValW {
-						displayVal = truncatePrefix(displayVal, 22)
+					fieldWidth := 25
+					primary := c.cfg.Colors.Primary
+					if primary == "" {
+						primary = fallbackPrimary
 					}
-					line = fmt.Sprintf("%s[%s]", prefix, displayVal)
+					text := c.cfg.Colors.Text
+					if text == "" {
+						text = fallbackText
+					}
+					renderedVal := renderEditValue([]rune(c.input), c.editCursor, fieldWidth, primary, text)
+
+					labelWidth := lipgloss.Width(fmt.Sprintf("%s: [%s]", shortKey, renderedVal))
+					padding := max(0, 35-labelWidth)
+					prefix := fmt.Sprintf("%s %s: %s", marker, shortKey, strings.Repeat(" ", padding))
+					line = fmt.Sprintf("%s[%s]", prefix, renderedVal)
 				} else {
 					displayVal := value
 					if lipgloss.Width(displayVal) > maxValW {
-						displayVal = truncatePrefix(displayVal, 22-1)
+						displayVal = truncatePrefix(displayVal, 25-1)
 					}
+
+					labelWidth := lipgloss.Width(fmt.Sprintf("%s: [%s]", shortKey, displayVal))
+					padding := max(0, 35-labelWidth)
+					prefix := fmt.Sprintf("%s %s: %s", marker, shortKey, strings.Repeat(" ", padding))
 					line = fmt.Sprintf("%s[%s]", prefix, displayVal)
 				}
 			}

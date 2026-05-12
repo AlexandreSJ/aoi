@@ -8,6 +8,6 @@ colors:
     error: "162"
     success: "75"
 system:
-    config: ~/.config/aoi
+    config: ~/.config/aoi/config.yaml
     words: ~/.config/aoi/words
     quotes: ~/.config/aoi/quotes
