@@ -126,6 +126,12 @@ func (t typingModel) Update(msg tea.Msg) (typingModel, tea.Cmd) {
 
 		t.lastKeyFlash = true
 
+		if msg.String() == "ctrl+w" {
+			t.lastKey = "ctrl+w"
+			t.lastKeyError = false
+			return t.handleDeleteWord(), flashCmd()
+		}
+
 		switch msg.Type {
 		case tea.KeyEnter:
 			t.lastKey = "enter"
@@ -311,6 +317,35 @@ func (t *typingModel) ensureBufferRows() {
 			t.chars = append(t.chars, typedChar{char: string(c)})
 		}
 	}
+}
+
+func (t typingModel) handleDeleteWord() typingModel {
+	if t.cursor <= 0 {
+		return t
+	}
+
+	if t.cursor < len(t.chars) && t.chars[t.cursor].state == charError {
+		t.chars[t.cursor].state = charPending
+		t.errorCount--
+	}
+
+	for t.cursor > 0 && t.chars[t.cursor-1].char == " " {
+		t.cursor--
+		if t.chars[t.cursor].state == charError {
+			t.errorCount--
+		}
+		t.chars[t.cursor].state = charPending
+	}
+
+	for t.cursor > 0 && t.chars[t.cursor-1].char != " " {
+		t.cursor--
+		if t.chars[t.cursor].state == charError {
+			t.errorCount--
+		}
+		t.chars[t.cursor].state = charPending
+	}
+
+	return t.adjustScroll()
 }
 
 func (t typingModel) handleBackspace() typingModel {
