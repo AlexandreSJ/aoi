@@ -16,18 +16,14 @@
   <img src="https://img.shields.io/badge/Bubble_Tea-1.3-ff69b4?style=flat-square" alt="Bubble Tea" href="https://github.com/charmbracelet/bubbletea">
   <img src="https://img.shields.io/badge/Lipgloss-1.1-7d56f4?style=flat-square" alt="Lipgloss" href="https://github.com/charmbracelet/lipgloss">
   <img src="https://img.shields.io/badge/License-MIT-00aaff?style=flat-square" alt="License" href="LICENSE">
-
   <br>
-
   <a href="https://www.buymeacoffee.com/aelxand" target="_blank">
     <img width=120px src="assets/bmc/bmc.png" alt="Buy Me A Coffee">
   </a>
-
   <br>
-
-  <a href="README-ptBR.md">
-    (README 🇧🇷)
-  </a>
+  <a href="README-ptBR.md"><img src="https://img.shields.io/badge/ptBR🇧🇷-README-fff?style=flat-square" alt="License" href="LICENSE"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/en🇬🇧-README-0af?style=flat-square" alt="License" href="LICENSE"></a>
+  <a href="README-es.md"><img src="https://img.shields.io/badge/es🇪🇸-README-fff?style=flat-square" alt="License" href="LICENSE"></a>
 </div>
 
 ## Table of Contents
@@ -37,6 +33,7 @@
 - [Usage](#usage)
 - [Features](#features)
 - [Configuration](#configuration)
+- [Roadmap](#roadmap)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -123,7 +120,7 @@ make run    # Build and run immediately
 - **Terminal**: Any modern terminal emulator (Terminal, iTerm2, Alacritty, Windows Terminal, etc.)
 - **Disk Space**: ~5MB for the binary
 
-### Troubleshooting
+## Troubleshooting
 
 **Q: I get "command not found: aoi"**
 A: Make sure your GOPATH/bin directory is in your PATH, or use the full path to the binary.
@@ -138,11 +135,81 @@ A: Ensure you have Go 1.24+ installed and that your terminal supports Unicode ch
 A: If you already have Go installed, run the following command to avoid the proxy.golang.org and use `-a` tag to force rebuild:
 `GOPROXY=direct go install -a github.com/AlexandreSJ/aoi/cmd/aoi@latest`
 
-### Contributing
+## Roadmap
+
+> Phased development plan. Each phase mixes work from multiple areas.
+
+### Phase 1 — Config Persistence & Themes `v0.3`
+
+
+**Config Management** (Completed for v0.3.1)
+- Input UI padding and spacing improvements
+- Config input fixes 
+
+**Config persistence** (WIP)
+- Remember last used mode, timed duration, word count, last file per mode, text size preference
+- Config version field with auto-migration on schema changes
+- Cursor on/off toggle
+- Key flash on/off toggle
+- Refactor `config.go` error handling
+
+**Theme system**
+- 4+ preset themes (Aoi default, Monokai, Dracula, Solarized, Catppuccin)
+- Theme selection screen accessible from home or config
+- Theme preview before applying
+- Custom themes from `~/.config/aoi/themes/` as YAML files
+- Import/export theme files for sharing
+
+### Phase 2 — Telemetry Core & Stats `v0.4`
+
+**Telemetry storage (JSONL)**
+- One line per test session at `~/.config/aoi/telemetry.jsonl`
+- Per session: mode, WPM, characters typed, whole words, ok/errors, precision, duration, timestamp
+- Per-character timestamps for speed analysis
+- Append-only, no external deps
+
+**Stats screen**
+- New screen from home (`s` key)
+- WPM average per mode
+- Session history list — browsable by date/mode/WPM
+- Per-key heatmap — slowest and most error-prone keys
+- Personal bests per mode — displayed on home screen
+- Streak tracking — consecutive practice days, shown on home
+- Export telemetry as CSV
+
+**Charts and visualizations**
+- WPM over time graph (sparkline or bar chart)
+- Accuracy trend
+- Per-key performance bars
+- All rendered with Lipgloss/Bubble Tea (no external chart lib)
+
+### Phase 3 — UX/UI & Sound `v0.5`
+
+**Progress bar**
+- Styled progress bar for Timed mode (time remaining) and Count mode (words typed/remaining)
+- Rendered above or below typing area
+
+**Typing screen refactor**
+- Smoother reading experience — better line spacing, word gap rendering
+- Live WPM ticker during typing
+- Refactor timer display (Timed mode) to show in progress bar area instead of footer
+- Error word repetition — after test, option to re-practice only error words
+
+**Sound system**
+- `gopxl/beep` for audio playback
+- 3+ embedded sound packs (mechanical tock, soft click, etc.)
+- Separate toggles: typing ok sound, typing error sound, finish jingle
+- Custom sounds from `~/.config/aoi/sounds/`
+
+**Footer refactor**
+- Move time/mode info to other locations (progress bar area)
+- Cleaner footer with just keybindings
+
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-### License
+## License
 
 MIT
 

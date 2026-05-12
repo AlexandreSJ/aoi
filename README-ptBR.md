@@ -16,18 +16,14 @@
   <img src="https://img.shields.io/badge/Bubble_Tea-1.3-ff69b4?style=flat-square" alt="Bubble Tea" href="https://github.com/charmbracelet/bubbletea">
   <img src="https://img.shields.io/badge/Lipgloss-1.1-7d56f4?style=flat-square" alt="Lipgloss" href="https://github.com/charmbracelet/lipgloss">
   <img src="https://img.shields.io/badge/Licença-MIT-00aaff?style=flat-square" alt="Licença" href="LICENSE">
-
   <br>
-
   <a href="https://www.buymeacoffee.com/aelxand" target="_blank">
     <img width=120px src="assets/bmc/bmc.png" alt="Buy Me A Coffee">
   </a>
-
   <br>
-
-  <a href="README.md">
-    (README 🇬🇧)
-  </a>
+  <a href="README-ptBR.md"><img src="https://img.shields.io/badge/ptBR🇧🇷-README-0af?style=flat-square" alt="License" href="LICENSE"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/en🇬🇧-README-fff?style=flat-square" alt="License" href="LICENSE"></a>
+  <a href="README-es.md"><img src="https://img.shields.io/badge/es🇪🇸-README-fff?style=flat-square" alt="License" href="LICENSE"></a>
 </div>
 
 ## Sumário
@@ -138,11 +134,81 @@ R: Certifique-se de ter o Go 1.24+ instalado e que seu terminal suporta caracter
 R: Se você já tem o Go instalado, execute o seguinte comando para evitar o proxy.golang.org e usar a tag `-a` para forçar a recompilação:
 `GOPROXY=direct go install -a github.com/AlexandreSJ/aoi/cmd/aoi@latest`
 
-### Contribuindo
+## Roadmap
+
+> Plano de desenvolvimento em fases. Cada fase mistura trabalho de múltiplas áreas.
+
+### Fase 1 — Persistência de Configuração e Temas `v0.3`
+
+
+**Gerenciamento de Configuração** (Concluído para v0.3.1)
+- Melhorias no padding e espaçamento da UI de entrada
+- Correções na entrada de configuração
+
+**Persistência de configuração** (Em andamento)
+- Lembrar último modo usado, duração temporizada, contagem de palavras, último arquivo por modo, preferência de tamanho de texto
+- Campo de versão na config com migração automática em mudanças de schema
+- Opção cursor ligado/desligado
+- Opção flash de tecla ligado/desligado
+- Refatorar tratamento de erros do `config.go`
+
+**Sistema de temas**
+- 4+ temas predefinidos (Aoi padrão, Monokai, Dracula, Solarized, Catppuccin)
+- Tela de seleção de tema acessível pela home ou configuração
+- Pré-visualização de tema antes de aplicar
+- Temas personalizados de `~/.config/aoi/themes/` como arquivos YAML
+- Importar/exportar arquivos de tema para compartilhar
+
+### Fase 2 — Telemetria e Estatísticas `v0.4`
+
+**Armazenamento de telemetria (JSONL)**
+- Uma linha por sessão de teste em `~/.config/aoi/telemetry.jsonl`
+- Por sessão: modo, WPM, caracteres digitados, palavras completas, ok/erros, precisão, duração, timestamp
+- Timestamps por caractere para análise de velocidade
+- Somente adição, sem dependências externas
+
+**Tela de estatísticas**
+- Nova tela acessível pela home (tecla `s`)
+- Média de WPM por modo
+- Lista de histórico de sessões — navegável por data/modo/WPM
+- Mapa de calor por tecla — teclas mais lentas e com mais erros
+- Melhores resultados por modo — exibidos na tela home
+- Rastreamento de sequência — dias consecutivos de prática, exibidos na home
+- Exportar telemetria como CSV
+
+**Gráficos e visualizações**
+- Gráfico de WPM ao longo do tempo (sparkline ou gráfico de barras)
+- Tendência de precisão
+- Barras de desempenho por tecla
+- Tudo renderizado com Lipgloss/Bubble Tea (sem lib de gráficos externa)
+
+### Fase 3 — UX/UI e Som `v0.5`
+
+**Barra de progresso**
+- Barra de progresso estilizada para modo Temporizado (tempo restante) e modo Contado (palavras digitadas/restantes)
+- Renderizada acima ou abaixo da área de digitação
+
+**Refatoração da tela de digitação**
+- Experiência de leitura mais suave — melhor espaçamento entre linhas, renderização de espaçamento entre palavras
+- Indicador de WPM em tempo real durante a digitação
+- Refatorar exibição do timer (modo Temporizado) para mostrar na área da barra de progresso em vez do rodapé
+- Repetição de palavras com erro — após o teste, opção de repraticar apenas palavras com erro
+
+**Sistema de som**
+- `gopxl/beep` para reprodução de áudio
+- 3+ pacotes de sons embutidos (toque mecânico, clique suave, etc.)
+- Controles separados: som de digitação ok, som de digitação erro, jingle de finalização
+- Sons personalizados de `~/.config/aoi/sounds/`
+
+**Refatoração do rodapé**
+- Mover informações de tempo/modo para outros locais (área da barra de progresso)
+- Rodapé mais limpo com apenas atalhos de teclado
+
+## Contribuindo
 
 Contribuições são bem-vindas! Sinta-se à vontade para enviar um Pull Request.
 
-### Licença
+## Licença
 
 MIT
 
