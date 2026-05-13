@@ -126,8 +126,8 @@ func (t typingModel) Update(msg tea.Msg) (typingModel, tea.Cmd) {
 
 		t.lastKeyFlash = true
 
-		if msg.String() == "ctrl+w" {
-			t.lastKey = "ctrl+w"
+		if msg.String() == "ctrl+w" || msg.String() == "ctrl+backspace" {
+			t.lastKey = msg.String()
 			t.lastKeyError = false
 			return t.handleDeleteWord(), flashCmd()
 		}
